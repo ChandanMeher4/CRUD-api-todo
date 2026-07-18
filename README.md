@@ -4,7 +4,7 @@ A simple in-memory CRUD API for managing a to-do list, built with Node.js and Ex
 
 ## What this is
 
-A backend API with five endpoints supporting full CRUD (Create, Read, Update, Delete) operations on an in-memory list of tasks. No database — data resets when the server restarts (see note below).
+A backend API with five endpoints supporting full CRUD (Create, Read, Update, Delete) operations on an in-memory list of tasks. No database, data resets when the server restarts (see note below).
 
 ## How to run it
 
@@ -59,8 +59,8 @@ Content-Type: application/json
 
 Interactive API docs are available at `http://localhost:3000/docs` once the server is running.
 
-<!-- Swagger UI screenshot removed (no image file in repo) -->
+![Swagger UI](image.png)
 
 ## Data persistence note
 
-> **Tasks are stored in memory only.** Restarting the server resets the task list back to the 3 default tasks — this is expected behavior, not a bug. A database will be added in a later stage of this track to make data persistent across restarts.
+> **Tasks are stored in memory only.** Restarting the server resets the task list back to the 3 default tasks, this is expected behavior, not a bug. A database will be added in a later stage of this track to make data persistent across restarts.
