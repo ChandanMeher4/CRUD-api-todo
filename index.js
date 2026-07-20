@@ -37,21 +37,25 @@ app.get("/tasks", async (req, res) => {
   }
 });
 
-app.post("/tasks", (req, res) => {
+app.post("/tasks", async (req, res) => {
   const { title } = req.body;
 
   if (!title || title.trim() === "") {
     return res.status(400).json({ error: "Title is required" });
   }
 
-  const newTask = {
-    id: tasks.length > 0 ? Math.max(...tasks.map((t) => t.id)) + 1 : 1,
-    title: title,
-    done: false,
-  };
-
-  tasks.push(newTask);
-  res.status(201).json(newTask);
+  try {
+    const result = await db.run(
+      "INSERT INTO tasks (title, done) VALUES (?, ?)",
+      [title, 0],
+    );
+    const newTask = await db.get("SELECT * FROM tasks WHERE id = ?", [
+      result.lastID,
+    ]);
+    res.status(201).json(newTask);
+  } catch (err) {
+    res.status(500).json({ error: "Database error" });
+  }
 });
 
 app.get("/tasks/:id", async (req, res) => {
