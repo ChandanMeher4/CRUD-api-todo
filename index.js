@@ -10,12 +10,6 @@ const openapiSpec = require("./openapi.json");
 
 app.use("/docs", swaggerUi.serve, swaggerUi.setup(openapiSpec));
 
-let tasks = [
-  { id: 1, title: "Buy groceries", done: false },
-  { id: 2, title: "Finish assignment", done: false },
-  { id: 3, title: "Go to gym", done: true },
-];
-
 app.get("/", (req, res) => {
   res.json({
     name: "Task API",
@@ -72,33 +66,53 @@ app.get("/tasks/:id", async (req, res) => {
   }
 });
 
-app.put("/tasks/:id", (req, res) => {
-  const task = tasks.find((t) => t.id === parseInt(req.params.id));
-  if (!task) {
-    return res.status(404).json({ error: `Task ${req.params.id} not found` });
+app.put("/tasks/:id", async (req, res) => {
+  try {
+    const task = await db.get("SELECT * FROM tasks WHERE id = ?", [
+      req.params.id,
+    ]);
+    if (!task) {
+      return res.status(404).json({ error: `Task ${req.params.id} not found` });
+    }
+
+    const { title, done } = req.body;
+    if (title === undefined && done === undefined) {
+      return res
+        .status(400)
+        .json({ error: "Provide at least title or done to update" });
+    }
+
+    const newTitle = title !== undefined ? title : task.title;
+    const newDone = done !== undefined ? (done ? 1 : 0) : task.done;
+
+    await db.run("UPDATE tasks SET title = ?, done = ? WHERE id = ?", [
+      newTitle,
+      newDone,
+      req.params.id,
+    ]);
+    const updatedTask = await db.get("SELECT * FROM tasks WHERE id = ?", [
+      req.params.id,
+    ]);
+    res.json(updatedTask);
+  } catch (err) {
+    res.status(500).json({ error: "Database error" });
   }
-
-  const { title, done } = req.body;
-  if (title === undefined && done === undefined) {
-    return res
-      .status(400)
-      .json({ error: "Provide at least title or done to update" });
-  }
-
-  if (title !== undefined) task.title = title;
-  if (done !== undefined) task.done = done;
-
-  res.json(task);
 });
 
-app.delete("/tasks/:id", (req, res) => {
-  const index = tasks.findIndex((t) => t.id === parseInt(req.params.id));
-  if (index === -1) {
-    return res.status(404).json({ error: `Task ${req.params.id} not found` });
-  }
+app.delete("/tasks/:id", async (req, res) => {
+  try {
+    const task = await db.get("SELECT * FROM tasks WHERE id = ?", [
+      req.params.id,
+    ]);
+    if (!task) {
+      return res.status(404).json({ error: `Task ${req.params.id} not found` });
+    }
 
-  tasks.splice(index, 1);
-  res.status(204).send();
+    await db.run("DELETE FROM tasks WHERE id = ?", [req.params.id]);
+    res.status(204).send();
+  } catch (err) {
+    res.status(500).json({ error: "Database error" });
+  }
 });
 
 app.listen(PORT, () => {
