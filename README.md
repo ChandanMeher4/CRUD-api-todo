@@ -1,33 +1,36 @@
-# Task API (SQLite)
+# Task API (Containerized)
 
-A full CRUD REST API for managing a to-do list, built with Node.js and Express, backed by a SQLite database.
+A full CRUD REST API for managing a to-do list, built with Node.js and Express, backed by a real PostgreSQL database, and containerized using Docker.
 
 ## What this is
 
-This backend API supports full CRUD (Create, Read, Update, Delete) operations. Originally built in-memory (data lost on every restart), storage has been swapped to a SQLite database file (`tasks.db`). The API endpoints behave identically to the in-memory version, but data now survives server restarts.
-
-## Why SQLite
-
-SQLite was chosen because it requires no separate database server, no installation, and no configuration. The entire database is a single file that gets created automatically the first time the app runs, making it ideal for a small project like this where the priority is learning persistence, not running production infrastructure.
-
-## Where the database lives
-
-The database is stored in a file called `tasks.db` in the project root. This file is created automatically on first run and is git-ignored, so each fresh clone starts with a clean database that gets seeded with 3 example tasks on first startup.
+This backend API supports full CRUD (Create, Read, Update, Delete) operations. Storage has moved through three stages in this repo: in-memory (A1), SQLite (A2), and now a containerized PostgreSQL database (A3). The entire stack (app + database) is networked via Docker Compose and runs on any machine with a single command.
 
 ## How to run it
 
 1. Clone this repo
-2. Install dependencies:
+2. Set up environment variables
 
-npm install
+   Create your local `.env` file from the provided example to safely load the database connection string:
 
-3. Start the server:
+   On Mac/Linux:
 
-node index.js
+cp .env.example .env
 
-4. Server runs at `http://localhost:3000`
 
-The database file and table are created automatically. Three example tasks are seeded only on the very first run.
+   On Windows CMD/PowerShell:
+
+copy .env.example .env
+
+
+3. Start the stack
+
+   Build and start the Node application and the Postgres database together:
+
+docker compose up
+
+
+   The API will be available at `http://localhost:3000`.
 
 ## Endpoints
 
@@ -37,37 +40,37 @@ The database file and table are created automatically. Three example tasks are s
 | GET | /health | Health check |
 | GET | /tasks | List all tasks |
 | GET | /tasks/:id | Get a single task |
-| POST | /tasks | Create a new task |
-| PUT | /tasks/:id | Update a task |
+| POST | /tasks | Create a new task (requires JSON body) |
+| PUT | /tasks/:id | Update a task title or status |
 | DELETE | /tasks/:id | Delete a task |
 
 ## Example request
 
+Request:
+
 curl.exe -i -X POST http://localhost:3000/tasks -H "Content-Type: application/json" -d "@test.json"
 
+
+Response:
+
 HTTP/1.1 201 Created
-Content-Type: application/json
+X-Powered-By: Express
+Content-Type: application/json; charset=utf-8
+Content-Length: 40
+Date: Mon, 20 Jul 2026 17:10:10 GMT
 
-{"id":4,"title":"Buy milk","done":0}
+{"id":4,"title":"Buy milk","done":false}
 
 
-## Data persistence
+## Data persistence (the mortality test)
 
-Unlike the original in-memory version, data is now persistent. Tasks are stored in a SQLite file (`tasks.db`) instead of a JavaScript array. Creating tasks, restarting the server, and running `GET /tasks` again confirms the tasks are still there, the first time this API's data has survived a restart.
+Data is fully persistent. The PostgreSQL database runs in a Docker container and uses a Docker volume (`taskdata`) to save rows directly to the host disk.
 
-## Exploring the database directly
+Creating a task, stopping the server, tearing down the stack with `docker compose down`, and bringing it back online with `docker compose up` proves that the data survives the restart.
 
-Stage 4 of this assignment involved running raw SQL directly against the database using DB Browser for SQLite and comparing it against the live API. One query run:
+## Repository pattern
 
-```sql
-UPDATE tasks SET done = 1;
-```
-
-This marked every task as done. Running `GET /tasks` immediately afterward, with no server restart, reflected the same change, confirming the API and the database file share one source of truth.
-
-**Note:** DB Browser for SQLite holds a lock on the database file while open, which caused a `SQLITE_BUSY` error when the running server tried to write to the file at the same time. Closing DB Browser resolved this. Worth knowing if using DB Browser and the running app together.
-
-![Database Screenshot](images/db-browser.png)
+All database logic lives in `db.js`, kept completely separate from the routes in `index.js`. This is the third storage engine this same API has run on (memory in A1, SQLite in A2, Postgres here in A3), and the routes and request/response shapes never changed across any of the three swaps, only the repository module did.
 
 ## Swagger UI
 
@@ -75,6 +78,10 @@ Interactive API docs are available at `http://localhost:3000/docs` once the serv
 
 ![Swagger UI](images/swagger.png)
 
+## Database verification
+
+![Postgres Table](images/table.png)
+
 ## Tech stack
 
-Node.js, Express, sqlite3, Swagger UI (swagger-ui-express)
+Node.js, Express, pg (node-postgres), PostgreSQL 15, Docker, Docker Compose, Swagger UI (swagger-ui-express)
