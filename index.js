@@ -33,20 +33,15 @@ app.get("/tasks", async (req, res) => {
 
 app.post("/tasks", async (req, res) => {
   const { title } = req.body;
-
   if (!title || title.trim() === "") {
     return res.status(400).json({ error: "Title is required" });
   }
-
   try {
-    const result = await db.run(
-      "INSERT INTO tasks (title, done) VALUES (?, ?)",
-      [title, 0],
+    const result = await db.query(
+      "INSERT INTO tasks (title, done) VALUES ($1, $2) RETURNING *",
+      [title, false],
     );
-    const newTask = await db.get("SELECT * FROM tasks WHERE id = ?", [
-      result.lastID,
-    ]);
-    res.status(201).json(newTask);
+    res.status(201).json(result.rows[0]);
   } catch (err) {
     res.status(500).json({ error: "Database error" });
   }
@@ -67,33 +62,27 @@ app.get("/tasks/:id", async (req, res) => {
 });
 
 app.put("/tasks/:id", async (req, res) => {
+  const { title, done } = req.body;
+  if (title === undefined && done === undefined) {
+    return res
+      .status(400)
+      .json({ error: "Provide at least title or done to update" });
+  }
   try {
-    const task = await db.get("SELECT * FROM tasks WHERE id = ?", [
+    const check = await db.query("SELECT * FROM tasks WHERE id = $1", [
       req.params.id,
     ]);
-    if (!task) {
+    if (check.rows.length === 0) {
       return res.status(404).json({ error: `Task ${req.params.id} not found` });
     }
-
-    const { title, done } = req.body;
-    if (title === undefined && done === undefined) {
-      return res
-        .status(400)
-        .json({ error: "Provide at least title or done to update" });
-    }
-
-    const newTitle = title !== undefined ? title : task.title;
-    const newDone = done !== undefined ? (done ? 1 : 0) : task.done;
-
-    await db.run("UPDATE tasks SET title = ?, done = ? WHERE id = ?", [
-      newTitle,
-      newDone,
-      req.params.id,
-    ]);
-    const updatedTask = await db.get("SELECT * FROM tasks WHERE id = ?", [
-      req.params.id,
-    ]);
-    res.json(updatedTask);
+    const currentTask = check.rows[0];
+    const newTitle = title !== undefined ? title : currentTask.title;
+    const newDone = done !== undefined ? done : currentTask.done;
+    const result = await db.query(
+      "UPDATE tasks SET title = $1, done = $2 WHERE id = $3 RETURNING *",
+      [newTitle, newDone, req.params.id],
+    );
+    res.json(result.rows[0]);
   } catch (err) {
     res.status(500).json({ error: "Database error" });
   }
@@ -101,14 +90,13 @@ app.put("/tasks/:id", async (req, res) => {
 
 app.delete("/tasks/:id", async (req, res) => {
   try {
-    const task = await db.get("SELECT * FROM tasks WHERE id = ?", [
-      req.params.id,
-    ]);
-    if (!task) {
+    const result = await db.query(
+      "DELETE FROM tasks WHERE id = $1 RETURNING *",
+      [req.params.id],
+    );
+    if (result.rows.length === 0) {
       return res.status(404).json({ error: `Task ${req.params.id} not found` });
     }
-
-    await db.run("DELETE FROM tasks WHERE id = ?", [req.params.id]);
     res.status(204).send();
   } catch (err) {
     res.status(500).json({ error: "Database error" });
