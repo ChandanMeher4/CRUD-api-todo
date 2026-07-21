@@ -24,8 +24,8 @@ app.get("/health", (req, res) => {
 
 app.get("/tasks", async (req, res) => {
   try {
-    const tasks = await db.all("SELECT * FROM tasks");
-    res.json(tasks);
+    const result = await db.query("SELECT * FROM tasks ORDER BY id ASC");
+    res.json(result.rows);
   } catch (err) {
     res.status(500).json({ error: "Database error" });
   }
@@ -54,13 +54,13 @@ app.post("/tasks", async (req, res) => {
 
 app.get("/tasks/:id", async (req, res) => {
   try {
-    const task = await db.get("SELECT * FROM tasks WHERE id = ?", [
+    const result = await db.query("SELECT * FROM tasks WHERE id = $1", [
       req.params.id,
     ]);
-    if (!task) {
+    if (result.rows.length === 0) {
       return res.status(404).json({ error: `Task ${req.params.id} not found` });
     }
-    res.json(task);
+    res.json(result.rows[0]);
   } catch (err) {
     res.status(500).json({ error: "Database error" });
   }
